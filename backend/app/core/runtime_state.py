@@ -1,0 +1,3 @@
+logs = []
+
+latest_result = []

@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+langgraph==0.2.60
+langchain==0.3.7
+langchain-core==0.3.17
+google-generativeai
+python-dotenv
+pydantic
+playwright
+beautifulsoup4
+requests
+aiosmtplib
