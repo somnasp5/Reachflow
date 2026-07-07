@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Virtual environments
+venv/
+env/
+test_backend/
+
+# Logs
+*.log
+
+# Runtime generated files
+*.json
+
+# Backup files
+*.bak
+*.backup
+
+# Node
+node_modules/
+
+# Build files
+dist/
+build/
+
+# Environment variables
+.env
