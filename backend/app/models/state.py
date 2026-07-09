@@ -14,3 +14,9 @@ class GraphState(TypedDict):
     researched_companies: List[Dict]
 
     final_output: List[Dict]
+
+    resume_text: str
+
+    resume_context: Dict
+
+    custom_prompt: str
