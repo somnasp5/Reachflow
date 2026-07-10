@@ -77,15 +77,18 @@ async def generate_emails_endpoint(
         content = await file.read()
         content_str = content.decode("utf-8")
 
-        # Determine file type and convert to HTML if needed
+        # Determine file type and set portal accordingly
         filename = file.filename.lower()
         if filename.endswith(('.html', '.htm')):
             html_content = content_str
+            portal = ""
         elif filename.endswith('.csv'):
-            html_content = csv_to_html_table(content_str)
+            html_content = content_str  # keep raw CSV string
+            portal = "csv"
         else:
             # Assume HTML if extension not recognized
             html_content = content_str
+            portal = ""
 
         # Read and extract text from resume
         resume_content = await resume.read()
@@ -112,7 +115,7 @@ async def generate_emails_endpoint(
             "resume_text": resume_text,
             "custom_prompt": custom_prompt if custom_prompt is not None else "",
             # Initialize other required fields with empty defaults
-            "portal": "",
+            "portal": portal,
             "jobs": [],
             "companies": [],
             "researched_companies": [],
@@ -130,7 +133,9 @@ async def generate_emails_endpoint(
         formatted_result = []
         for item in result:
             formatted_result.append({
+
                 "company_name": item.get("company_name", ""),
+                
                 "job_title": item.get("job_title", ""),
                 "company_email": item.get("company_email", ""),
                 "generated_email": item.get("generated_email", ""),

@@ -14,6 +14,10 @@ def portal_detector_agent(state):
 
     logs.append("Detecting job portal from HTML")
 
+    if state.get("portal") == "csv":
+       print("DETECTED PORTAL: csv")
+       return {"portal": "csv"}
+
     if "naukri" in html:
 
         portal = "naukri"

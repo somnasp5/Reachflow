@@ -2,6 +2,7 @@
 from app.services.parsers.naukri_parser import parse_naukri_jobs
 from app.services.parsers.internshala_parser import parse_internshala
 from app.services.parsers.foundit_parser import parse_foundit
+from app.services.parsers.csv_parser import parse_csv_jobs
 
 from app.core.runtime_state import logs
 
@@ -36,6 +37,10 @@ def scraper_agent(state):
         logs.append("Parsing Foundit HTML")
 
         jobs = parse_foundit(html)
+    elif portal == "csv":
+         print("\nCSV CONTENT:")
+         print(html[:500])
+         jobs = parse_csv_jobs(html)    
 
     else:
 
