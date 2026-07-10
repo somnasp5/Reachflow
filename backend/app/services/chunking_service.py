@@ -139,10 +139,10 @@ def chunk_company_information(company_data: Dict[str, Any]) -> List[Dict[str, st
         text_chunks = chunk_text(value)
 
         # Create a chunk dictionary for each text chunk
-        for chunk_text in text_chunks:
-            chunks.append({
-                "chunk_type": field,
-                "chunk_text": chunk_text
+        for chunk in text_chunks:
+           chunks.append({
+              "chunk_type": field,
+            "chunk_text": chunk
             })
 
     return chunks

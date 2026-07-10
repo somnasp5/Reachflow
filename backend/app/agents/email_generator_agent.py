@@ -1,59 +1,17 @@
 """
-Email Generator Agent - Generates personalized outreach emails using LLM.
-Updated to use retrieved context from RAG and resume context from parser.
+Email Generator Agent - Generates personalized outreach emails.
 """
 
 from app.services.ollama_service import generate_custom_email
 from app.core.runtime_state import logs
 
+
 def email_generator_agent(state):
-    """
-    Generates personalized outreach emails for each company.
-    Expected state keys:
-      - researched_companies: list of dicts with company_name, job_title, company_email,
-                              retrieved_context, source_urls, last_updated
-      - resume_context: dict with keys skills, projects, experience, education, certifications
-    """
     print("\n--- EMAIL GENERATOR AGENT RUNNING ---")
     logs.append("EMAIL GENERATOR AGENT RUNNING")
 
     companies = state.get("researched_companies", [])
     resume_context = state.get("resume_context", {})
-
-    # Prepare resume summary string
-    def _format_resume(ctx):
-        parts = []
-        if ctx.get("skills"):
-            skills = ", ".join(ctx["skills"][:10])  # limit to top 10
-            parts.append(f"Skills: {skills}.")
-        if ctx.get("projects"):
-            proj_names = [p.get("name", "") for p in ctx["projects"] if isinstance(p, dict) and p.get("name")]
-            proj_names = [n for n in proj_names if n]
-            if proj_names:
-                parts.append(f"Projects: {', '.join(proj_names[:5])}.")
-        if ctx.get("experience"):
-            exp_items = []
-            for exp in ctx["experience"]:
-                if isinstance(exp, dict):
-                    role = exp.get("role", "")
-                    company = exp.get("company", "")
-                    if role or company:
-                        exp_items.append(f"{role} at {company}".strip())
-            if exp_items:
-                parts.append(f"Experience: {', '.join(exp_items[:3])}.")
-        if ctx.get("education"):
-            edu = ctx["education"]
-            if isinstance(edu, str) and edu.strip():
-                parts.append(f"Education: {edu}.")
-            elif isinstance(edu, dict):
-                # e.g., {"degree": "B.Tech", "institution": "...", "year": "2026"}
-                parts.append(f"Education: {edu.get('degree', '')} from {edu.get('institution', '')}.")
-        if ctx.get("certifications"):
-            certs = ", ".join(ctx["certifications"][:5])
-            parts.append(f"Certifications: {certs}.")
-        return " ".join(parts)
-
-    resume_summary = _format_resume(resume_context)
 
     final_output = []
 
@@ -62,131 +20,112 @@ def email_generator_agent(state):
         job_title = company.get("job_title", "")
         company_email = company.get("company_email", "")
         retrieved_context = company.get("retrieved_context", "")
+        print("\n========== EMAIL CONTEXT ==========")
+        print(company_name)
+        print(retrieved_context[:500])
+        print("Context length:", len(retrieved_context))
+        print("===================================\n")
 
         if not company_name:
             continue
 
         logs.append(f"Generating email for {company_name}")
 
-        # Build custom prompt that includes company and student context
         custom_prompt = f"""
-You are the official Placement Coordination Team of IIIT Bhubaneswar writing a real placement outreach email to a company recruiter or hiring team.
+Student Details:
+- Name: {resume_context.get('name', '')}
+- College: {resume_context.get('college', '')}
+- Branch: {resume_context.get('branch', '')}
+- Graduation Year: {resume_context.get('graduation_year', '')}
+- Skills: {", ".join(resume_context.get("skills", []))}
+- Projects: {", ".join(resume_context.get("projects", []))}
+- Experience: {", ".join(resume_context.get("experience", []))}
 
-Your goal is to professionally approach the company for internship, placement, and campus hiring opportunities for the 2026 graduating batch.
+Company Details:
+- Company Name: {company_name}
+- Job Role: {job_title}
+- Company Context: {retrieved_context}
 
-========================
-COMPANY DETAILS
-========================
+Write a personalized cold email from the student's perspective.
 
-Company Name:
-{company_name}
+The first paragraph should briefly introduce the student.
 
-Relevant Job Role:
-{job_title}
+The second paragraph should naturally connect the student's skills or projects with the company and the role.
 
-Company Background (from recent research):
-{retrieved_context if retrieved_context else "No specific details available."}
+The final paragraph should politely express interest in an internship, full-time, or campus opportunity and request a chance to connect.
 
-========================
-STUDENT PROFILE
-========================
-
-The candidate(s) from IIIT Bhubaneswar have the following background:
-{resume_summary if resume_summary else "Skills, projects, and experience as per resume."}
-
-========================
-COLLEGE DETAILS
-========================
-
-Institute:
-International Institute of Information Technology (IIIT) Bhubaneswar
-
-Graduating Batch:
-2026
-
-Eligible Branches:
-- Computer Engineering (CE)
-- Computer Science Engineering (CSE)
-- Information Technology (IT)
-- Electronics & Telecommunication (ETC)
-- Electrical & Electronics Engineering (EEE)
-
-========================
-EMAIL OBJECTIVE
-========================
-
-Write a professional placement outreach email requesting the company to consider IIIT Bhubaneswar students for:
-- internships
-- full-time roles
-- campus recruitment opportunities
-
-========================
-WRITING STYLE
-========================
-
-The email MUST:
-- sound natural and human-written
-- sound professional and confident
-- feel personalized to the company
-- reference the company domain/work naturally
-- mention the relevant role naturally
-- avoid sounding overly sales-like
-- avoid robotic AI wording
-- avoid generic template language
-- avoid repetition
-- avoid bullet points
-- avoid placeholders
-- avoid exaggerated claims
-
-========================
-IMPORTANT INSTRUCTIONS
-========================
-
-- Keep the email concise but impactful
-- Keep tone formal and respectful
-- Maximum length: 220 words
-- Write in proper paragraphs
-- Mention why IIIT Bhubaneswar students are suitable (refer to their skills/projects/experience)
-- End with a polite call for further discussion or collaboration
-
-========================
-OUTPUT RULES
-========================
-
-Return ONLY the email body.
-
-Do NOT generate:
-- subject line
-- greetings like "Dear Sir/Madam" repeatedly
-- explanations
-- notes
-- markdown
-- bullet points
+Rules:
+- 120-150 words only.
+- Professional and natural.
+- Mention only information available in the resume.
+- Do not invent skills or projects.
+- Do not praise the company excessively.
+- Do not repeat ideas.
+- No bullet points.
+- Do not mention the placement cell.
+- Return only the email body.
 """
 
         try:
             generated_email = generate_custom_email(
-                company_name=company_name,
-                hr_name="",  # We don't have HR name; leave empty
-                position=job_title,
-                company_info="",  # Not used because we put all in custom_prompt
-                custom_prompt=custom_prompt
-            )
+    company_name=company_name,
+    hr_name="",
+    position=job_title,
+    company_info=retrieved_context,
+    custom_prompt=custom_prompt,
+)
+
+            final_output.append({
+                "company_name": company_name,
+                "job_title": job_title,
+                "company_email": company_email,
+                "generated_email": generated_email.strip(),
+            })
+
         except Exception as e:
             logs.append(f"Error generating email for {company_name}: {e}")
-            generated_email = "Error generating email."
 
-        final_output.append({
-            "company_name": company_name,
-            "job_title": job_title,
-            "company_email": company_email,
-            "generated_email": generated_email.strip()
-        })
+            fallback_email = (
+                f"My name is {resume_context.get('name','')}. "
+            )
 
-        print(f"EMAIL GENERATED FOR {company_name}")
-        logs.append(f"Email generated successfully for {company_name}")
+            if resume_context.get("branch"):
+                fallback_email += (
+                    f"I am a {resume_context.get('branch')} student"
+                )
 
-    logs.append(f"Generated emails for {len(final_output)} companies")
+            if resume_context.get("graduation_year"):
+                fallback_email += (
+                    f" graduating in {resume_context.get('graduation_year')}."
+                )
+            else:
+                fallback_email += "."
+
+            if resume_context.get("college"):
+                fallback_email += (
+                    f" I study at {resume_context.get('college')}."
+                )
+
+            fallback_email += (
+                f" I am interested in opportunities at {company_name}"
+            )
+
+            if job_title:
+                fallback_email += f" for the {job_title} role."
+
+            fallback_email += (
+                " I would appreciate the opportunity to discuss how my skills can contribute to your team."
+                "\n\nBest regards,\n"
+                + resume_context.get("name", "")
+            )
+
+            final_output.append({
+                "company_name": company_name,
+                "job_title": job_title,
+                "company_email": company_email,
+                "generated_email": fallback_email,
+            })
+
     return {
         "final_output": final_output
     }

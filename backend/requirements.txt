@@ -25,3 +25,10 @@ httpx==0.27.2
 
 pandas==3.0.3
 ipython==9.15.0
+pymongo
+sentence-transformers
+torch
+numpy
+pypdf
+python-docx
+PyPDF2

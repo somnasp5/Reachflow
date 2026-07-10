@@ -85,8 +85,9 @@ def _collect_company_data(company_name: str) -> Dict[str, Any]:
                 if link:
                     all_urls.add(link)
 
-            company_data[field] = " ".join(snippets)
+            unique_snippets = list(set(snippets))
 
+            company_data[field] = " ".join(unique_snippets)
             # Log completion for this field (optional)
             logger.debug(f"Google Search completed for {company_name} - {field}")
         except Exception as e:
@@ -226,7 +227,11 @@ def company_research_agent(state):
                         "work_culture", "hiring_information", "recent_updates"]
                 and isinstance(v, str) and v.strip()
             }
+            print("DEBUG CHUNK INPUT")
+            print(chunkable_data)
             chunks = chunk_company_information(chunkable_data)
+            print("DEBUG CHUNKS OUTPUT")
+            print(chunks)
             if chunks:
                 print(f"  Chunks created: {len(chunks)}")
             else:

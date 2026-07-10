@@ -157,6 +157,10 @@ IMPORTANT INSTRUCTIONS
 - Write proper paragraphs
 - No bullet points
 - No placeholders
+- Do not add any company facts unless they are present in Company Information.
+- Do not praise the company using general statements.
+- Do not mention hiring process, culture, values, products, or achievements without evidence.
+- Use only the student's resume information and provided company context.
 
 Generate ONLY the email body.
 """

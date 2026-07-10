@@ -1,246 +1,158 @@
 """
-Resume Parser Agent for extracting key information from resume text.
+Simple Resume Parser Agent
 """
 
 import logging
 import re
-from typing import Dict, List, Any
 
 logger = logging.getLogger(__name__)
 
-# Define section headers we're looking for (case-insensitive)
-SECTION_HEADERS = {
-    "skills": [
-        "skills", "technical skills", "technologies", "programming languages",
-        "tools", "languages", "technical expertise", "competencies"
-    ],
-    "projects": [
-        "projects", "personal projects", "academic projects", "project experience",
-        "key projects", "selected projects", "project work"
-    ],
-    "experience": [
-        "experience", "work experience", "professional experience", "employment",
-        "work history", "professional background", "career history"
-    ],
-    "education": [
-        "education", "academic background", "academic education", "educational background",
-        "academic qualifications", "qualifications"
-    ],
-    "certifications": [
-        "certifications", "certificates", "licenses", "accreditations",
-        "professional certifications", "coursework"
-    ]
-}
 
-# Sections to ignore (we won't capture content under these)
-IGNORE_SECTIONS = [
-    "summary", "profile", "personal", "personal information", "contact",
-    "contact information", "address", "phone", "email", "linkedin", "github",
-    "hobbies", "interests", "references", "objective", "objectives"
-]
+def extract_contact_info(lines, text):
+    data = {
+        "name": "",
+        "email": "",
+        "github": "",
+        "linkedin": "",
+        "college": "",
+        "branch": "",
+        "graduation_year": ""
+    }
 
-def _is_header_line(line: str, headers: List[str]) -> bool:
-    """Check if a line matches any of the given headers (case-insensitive)."""
-    line_lower = line.strip().lower()
-    for header in headers:
-        # Match exact header or header followed by colon
-        if line_lower == header.lower() or line_lower.startswith(header.lower() + ":"):
-            return True
-        # Also match common variations like "Skills:" or "SKILLS"
-        if re.match(rf"^{re.escape(header)}[\s:-]*$", line_lower, re.IGNORECASE):
-            return True
-    return False
+    # Name
+    if lines:
+        first = lines[0]
+        if "@" not in first and len(first.split()) <= 4:
+            data["name"] = first
 
-def _get_section_content(lines: List[str], start_idx: int, stop_headers: List[str]) -> List[str]:
-    """
-    Extract content lines starting from start_idx until we hit a stop header or end of lines.
-    """
-    content = []
-    for i in range(start_idx, len(lines)):
-        line = lines[i].strip()
-        if not line:
-            # Skip empty lines but continue in case there's more content
+    # Email
+    match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
+    if match:
+        data["email"] = match.group()
+
+    # Github
+    match = re.search(r"github\.com/\S+", text, re.I)
+    if match:
+        data["github"] = match.group()
+
+    # LinkedIn
+    match = re.search(r"linkedin\.com/in/\S+", text, re.I)
+    if match:
+        data["linkedin"] = match.group()
+
+    # Education details
+    education_text = text.lower()
+
+    if "iiit bhubaneswar" in education_text:
+        data["college"] = "IIIT Bhubaneswar"
+
+    elif "iit" in education_text:
+        data["college"] = "IIT"
+
+    year = re.search(r"20\d{2}", text)
+    if year:
+        data["graduation_year"] = year.group()
+
+    if "electronics" in education_text or "etc" in education_text:
+        data["branch"] = "Electronics & Telecommunication Engineering"
+
+    elif "computer science" in education_text or "cse" in education_text:
+        data["branch"] = "Computer Science Engineering"
+
+    return data
+
+
+def extract_sections(lines):
+    result = {
+        "skills": [],
+        "projects": [],
+        "experience": [],
+        "education": "",
+        "certifications": []
+    }
+
+    current = ""
+
+    headers = {
+        "skills": ["skills"],
+        "projects": ["projects"],
+        "experience": ["experience"],
+        "education": ["education"],
+        "certifications": ["certifications", "certificates"]
+    }
+
+    for line in lines:
+
+        lower = line.lower()
+
+        found = False
+
+        for section, words in headers.items():
+
+            if any(word == lower.rstrip(":") for word in words):
+                current = section
+                found = True
+                break
+
+        if found:
             continue
 
-        # Check if this line is a header we should stop at (either target or ignore)
-        if _is_header_line(line, stop_headers):
-            break
+        if current == "skills":
 
-        content.append(line)
-    return content
+            skills = re.split(r"[,|;/•]", line)
 
-def _extract_skills(text_lines: List[str]) -> List[str]:
-    """Extract and clean skills from the skills section."""
-    skills = []
-    # Find skills section
-    in_skills = False
-    skills_lines = []
+            for skill in skills:
+                skill = skill.strip()
+                if skill:
+                    result["skills"].append(skill)
 
-    for line in text_lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
+        elif current == "projects":
+            result["projects"].append(line)
 
-        if _is_header_line(stripped, SECTION_HEADERS["skills"]):
-            in_skills = True
-            continue
+        elif current == "experience":
+            result["experience"].append(line)
 
-        # Stop if we hit another section header (target or ignore)
-        if in_skills and (_is_header_line(stripped,
-                           [h for sect in SECTION_HEADERS.values() for h in sect] +
-                           IGNORE_SECTIONS)):
-            in_skills = False
-            continue
+        elif current == "education":
+            result["education"] += line + " "
 
-        if in_skills:
-            skills_lines.append(stripped)
+        elif current == "certifications":
+            result["certifications"].append(line)
 
-    # Process skills lines: split by common delimiters
-    for line in skills_lines:
-        # Split by commas, semicolons, newlines, and bullet points
-        parts = re.split(r'[,;\n\-•\*]', line)
-        for part in parts:
-            cleaned = part.strip()
-            if cleaned and len(cleaned) > 1:  # Avoid single characters
-                skills.append(cleaned)
+    # Remove duplicates
+    result["skills"] = list(dict.fromkeys(result["skills"]))
 
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_skills = []
-    for skill in skills:
-        if skill.lower() not in seen:
-            seen.add(skill.lower())
-            unique_skills.append(skill)
+    return result
 
-    return unique_skills
-
-def _extract_section_as_list(text_lines: List[str], section_key: str) -> List[str]:
-    """Extract a section (projects, experience, certifications) as a list of entries."""
-    entries = []
-    in_section = False
-    section_lines = []
-
-    for line in text_lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-
-        if _is_header_line(stripped, SECTION_HEADERS[section_key]):
-            in_section = True
-            # Save previous section content if any
-            if section_lines:
-                entries.append(" ".join(section_lines))
-                section_lines = []
-            continue
-
-        # Stop if we hit another section header (target or ignore)
-        if in_section and (_is_header_line(stripped,
-                           [h for sect in SECTION_HEADERS.values() for h in sect] +
-                           IGNORE_SECTIONS)):
-            in_section = False
-            if section_lines:
-                entries.append(" ".join(section_lines))
-                section_lines = []
-            continue
-
-        if in_section:
-            section_lines.append(stripped)
-
-    # Don't forget the last section
-    if in_section and section_lines:
-        entries.append(" ".join(section_lines))
-
-    # Clean up entries: remove empty and very short ones
-    cleaned_entries = []
-    for entry in entries:
-        entry = entry.strip()
-        if entry and len(entry) > 3:  # Avoid meaningless entries
-            cleaned_entries.append(entry)
-
-    return cleaned_entries
-
-def _extract_section_as_string(text_lines: List[str], section_key: str) -> str:
-    """Extract a section (education) as a single string."""
-    in_section = False
-    section_lines = []
-
-    for line in text_lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-
-        if _is_header_line(stripped, SECTION_HEADERS[section_key]):
-            in_section = True
-            # Save previous section content if any
-            if section_lines:
-                section_lines = []  # Reset for new section
-            continue
-
-        # Stop if we hit another section header (target or ignore)
-        if in_section and (_is_header_line(stripped,
-                           [h for sect in SECTION_HEADERS.values() for h in sect] +
-                           IGNORE_SECTIONS)):
-            in_section = False
-            break
-
-        if in_section:
-            section_lines.append(stripped)
-
-    # Join lines with spaces for education
-    return " ".join(section_lines).strip()
 
 def resume_parser_agent(state):
-    """
-    Parse resume text to extract skills, projects, experience, education, and certifications.
-    """
+
     print("\n--- RESUME PARSER AGENT RUNNING ---")
 
     resume_text = state.get("resume_text", "")
+
     if not resume_text:
-        logger.warning("No resume text provided")
-        return {
-            "resume_context": {
-                "skills": [],
-                "projects": [],
-                "experience": [],
-                "education": "",
-                "certifications": []
-            }
-        }
+        return {"resume_context": {}}
 
     try:
-        # Split text into lines
-        lines = resume_text.split('\n')
 
-        # Extract each section
-        skills = _extract_skills(lines)
-        projects = _extract_section_as_list(lines, "projects")
-        experience = _extract_section_as_list(lines, "experience")
-        education = _extract_section_as_string(lines, "education")
-        certifications = _extract_section_as_list(lines, "certifications")
+        lines = [line.strip() for line in resume_text.split("\n") if line.strip()]
 
-        logger.info(f"Parsed resume: {len(skills)} skills, {len(projects)} projects, "
-                   f"{len(experience)} experience entries, {len(certifications)} certifications")
+        contact = extract_contact_info(lines, resume_text)
+
+        sections = extract_sections(lines)
+
+        resume_context = {**contact, **sections}
+
+        logger.info("Resume parsed successfully.")
 
         return {
-            "resume_context": {
-                "skills": skills,
-                "projects": projects,
-                "experience": experience,
-                "education": education,
-                "certifications": certifications
-            }
+            "resume_context": resume_context
         }
 
     except Exception as e:
-        logger.error(f"Error parsing resume: {e}")
-        # Return empty structure on error to avoid breaking the pipeline
+
+        logger.error(e)
+
         return {
-            "resume_context": {
-                "skills": [],
-                "projects": [],
-                "experience": [],
-                "education": "",
-                "certifications": []
-            }
+            "resume_context": {}
         }
